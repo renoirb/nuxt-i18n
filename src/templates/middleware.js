@@ -68,8 +68,14 @@ middleware['i18n'] = async ({ app, req, res, route, store, redirect, isHMR }) =>
     return
   }
 
-  const routeLocale = getLocaleFromRoute(route, routesNameSeparator, locales)
-  locale = routeLocale ? routeLocale : locale
+  const hasLanguageGuesser = Reflect.has(app.i18n, 'optionalLanguageGuesser') && typeof app.i18n.optionalLanguageGuesser === 'function'
+  if (hasLanguageGuesser) {
+    const maybeLocale = app.i18n.optionalLanguageGuesser(app.context)
+    locale = typeof maybeLocale === 'string' ? maybeLocale : locale
+  } else {
+    const routeLocale = getLocaleFromRoute(route, routesNameSeparator, locales)
+    locale = typeof routeLocale === 'string' ? routeLocale : locale
+  }
 
   // Abort if locale did not change
   if (locale === app.i18n.locale) {
@@ -83,6 +89,8 @@ middleware['i18n'] = async ({ app, req, res, route, store, redirect, isHMR }) =>
     const { loadLanguageAsync } = require('./utils')
     const messages = await loadLanguageAsync(app.i18n, locale)
     app.i18n.locale = locale
+    app.i18n.loadedLanguages.push(locale)
+    app.i18n.setLocaleMessage(locale, messages)
     app.i18n.onLanguageSwitched(oldLocale, locale)
     syncVuex(locale, messages)
   } else {
